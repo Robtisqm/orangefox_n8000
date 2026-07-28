@@ -1,0 +1,65 @@
+name: Build OrangeFox for N8000
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+
+    steps:
+    - name: Clean Up Runner Space
+      run: |
+        sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+        sudo apt-get update && sudo apt-get install -y bc bison build-essential ccache curl flex g++-multilib gcc-multilib git gnupg gperf imagemagick lib32ncurses5-dev lib32z1-dev libkrb5-dev libgl1-mesa-dev libxml2-utils xsltproc zip zlib1g-dev python3
+
+    - name: Install Repo Tool
+      run: |
+        mkdir -p ~/bin
+        curl https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo
+        chmod a+x ~/bin/repo
+        echo "$HOME/bin" >> $GITHUB_PATH
+
+    - name: Initialize OrangeFox Repo
+      run: |
+        mkdir -p ~/fox
+        cd ~/fox
+        git config --global user.name "GitHub Actions"
+        git config --global user.email "actions@github.com"
+        repo init -u https://gitlab.com/OrangeFox/manifest.git -b fox_9.0 --depth=1
+        repo sync -c -j$(nproc) --no-clone-bundle --no-tags
+
+    - name: Clone Device Tree (html6405)
+      run: |
+        cd ~/fox
+        git clone https://github.com/html6405/android_device_samsung_n8000 device/samsung/n8000 --depth=1
+
+    - name: Inject OrangeFox Config to BoardConfig
+      run: |
+        cat <<EOT >> ~/fox/device/samsung/n8000/BoardConfig.mk
+
+        # OrangeFox Flags
+        FOX_USE_TWRP_RECOVERY_IMAGE_BUILDER := 1
+        TARGET_SCREEN_WIDTH := 1280
+        TARGET_SCREEN_HEIGHT := 800
+        OF_NO_TREBLE_COMPATIBILITY_CHECK := 1
+        OF_DISABLE_MIUI_SPECIFIC_FEATURES := 1
+        OF_AB_DEVICE := 0
+        0F_DISABLE_MAGISK_ADDON := 1
+        EOT
+
+    - name: Building Recovery
+      run: |
+        cd ~/fox
+        export ALLOW_MISSING_DEPENDENCIES=true
+        source build/envsetup.sh
+        lunch omni_n8000-eng || lunch omni_n8000-userdebug
+        mka recoveryimage -j$(nproc)
+
+    - name: Upload Recovery Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: OrangeFox_N8000_Recovery
+        path: |
+          /home/runner/fox/out/target/product/n8000/recovery.img
+          /home/runner/fox/out/target/product/n8000/*.zip
