@@ -5,7 +5,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
 
     steps:
     - name: Clean Up Runner Space
@@ -45,7 +45,7 @@ jobs:
         OF_NO_TREBLE_COMPATIBILITY_CHECK := 1
         OF_DISABLE_MIUI_SPECIFIC_FEATURES := 1
         OF_AB_DEVICE := 0
-        0F_DISABLE_MAGISK_ADDON := 1
+        OF_DISABLE_MAGISK_ADDON := 1
         EOT
 
     - name: Building Recovery
